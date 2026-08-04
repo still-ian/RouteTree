@@ -63,7 +63,8 @@ RULES:
 - style must be exactly one of: "pass", "run", "block", "motion".
 - Keep every x within 20-730 and every y within 20-980. Keep every label 5 characters or fewer.
 
-WORKED EXAMPLE
+WORKED EXAMPLE -- this shows the coordinate math and JSON format only. NEVER reuse these exact numbers, labels, or routes for an actual request, even if the wording looks similar to the input below. Always recompute every coordinate from scratch based on the real input you were given. If the real input is vague, incomplete, or cut off, do your best reasonable interpretation of what IS there rather than defaulting to this example.
+
 Input: "Two receiver set on the left hash, strength to the field. Z runs a 15-yard dig with a square break, Y runs a seam route, then X and H both run slants."
 
 Reasoning: ball on the left hash (x=290), so field/strength side is to the right (larger x), boundary side is to the left (smaller x). OL centered on x=290: LT=190, LG=240, C=290, RG=340, RT=390. TE (Y) attached on the strength side at x=440. Z (flanker) outside Y, off the line, strength side, at x=600. H (slot) between Y and Z, off the line, strength side, at x=520. X (split end) on the line, boundary side, at x=60. QB and RB in shotgun behind the ball. That's 5 OL + TE + Z + H + X + QB + RB = 11 offensive players, indexed 0-10 in the order listed. Z's dig: release straight up 15 yards (15*8=120px) from (600,700) to (600,580), then a 90-degree break toward the middle by about 6 yards (6*8=48px) to (552,580). Y's seam: straight release about 18 yards from (440,700) to (440,556). X's slant: release ~2 yards then break inward (toward larger x, since X is on the boundary/left) at 45 degrees, ending around (100,660). H's slant: release then break toward the middle (toward smaller x, since H is on the field/right side), ending around (480,672).
