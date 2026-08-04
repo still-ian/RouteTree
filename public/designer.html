@@ -546,6 +546,7 @@
     const input = document.getElementById('aiInput');
     const text = input.value.trim();
     if(!text){ setStatus('Type a play description first.'); return; }
+    if(text.length < 20){ setStatus('That looks cut off — describe the formation and at least one route before drawing it up.'); return; }
     if(!hasAccess){ setStatus('AI play generation needs an active plan. Visit Billing to upgrade.'); return; }
     const btn = document.getElementById('aiBtn');
     btn.disabled = true; btn.textContent = 'Drawing...';
