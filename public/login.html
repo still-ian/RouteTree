@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log in — RouteTree.ai</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<nav class="top">
+  <a class="brand" href="/">Route<span>Tree</span>.ai</a>
+  <div class="links"><a href="/signup.html">Sign up</a></div>
+</nav>
+
+<div class="wrap" style="max-width:420px;padding-top:60px;">
+  <div class="card">
+    <h2>Log in</h2>
+    <div class="error-box" id="errBox"></div>
+    <form id="loginForm">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="email" required>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="password" required>
+      </div>
+      <button class="btn" type="submit" style="width:100%;" id="submitBtn">Log in</button>
+    </form>
+    <p class="dim" style="margin-top:16px;">No account yet? <a href="/signup.html">Sign up</a></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/config.js"></script>
+<script src="/js/supabaseClient.js"></script>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errBox = document.getElementById('errBox');
+  errBox.classList.remove('show');
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = 'Logging in...';
+
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  const { error } = await window.supabaseClient.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    errBox.textContent = error.message;
+    errBox.classList.add('show');
+    btn.disabled = false; btn.textContent = 'Log in';
+    return;
+  }
+  window.location.href = '/dashboard.html';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Billing — RouteTree.ai</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<nav class="top">
+  <a class="brand" href="/dashboard.html">Route<span>Tree</span>.ai</a>
+  <div class="links">
+    <a href="/dashboard.html" data-page="dashboard">Plays</a>
+    <a href="/team.html" data-page="team">Team</a>
+    <a href="/billing.html" data-page="billing">Billing</a>
+    <a href="/settings.html" data-page="settings">Settings</a>
+    <span class="pill" id="planPill">...</span>
+    <button id="signOutBtn">Sign out</button>
+  </div>
+</nav>
+
+<div class="wrap" style="padding-top:24px;max-width:720px;">
+  <h1>Billing</h1>
+  <p class="dim" id="currentPlanLine">Checking your plan...</p>
+  <p class="status-msg" id="checkoutMsg"></p>
+
+  <div class="card" id="manageBox" style="display:none;">
+    <h2>Manage subscription</h2>
+    <p class="dim">Update your card, view invoices, or cancel — handled securely by Stripe.</p>
+    <button class="btn secondary" id="portalBtn">Open billing portal</button>
+  </div>
+
+  <div class="plan-grid" id="plansBox">
+    <div class="plan-card">
+      <div class="pill">Individual</div>
+      <div class="price">$9<span style="font-size:14px;color:var(--text-dim);">/mo</span></div>
+      <ul>
+        <li>AI play generation</li>
+        <li>Unlimited saved plays</li>
+        <li>Your own private playbook</li>
+      </ul>
+      <button class="btn" style="width:100%;" data-plan="individual">Choose Individual</button>
+    </div>
+    <div class="plan-card featured">
+      <div class="pill on">Team</div>
+      <div class="price">$39<span style="font-size:14px;color:var(--text-dim);">/mo</span></div>
+      <ul>
+        <li>Everything in Individual</li>
+        <li>Up to 10 coaches, one playbook</li>
+        <li>You get a join code for your staff</li>
+      </ul>
+      <button class="btn" style="width:100%;" data-plan="team">Choose Team</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/config.js"></script>
+<script src="/js/supabaseClient.js"></script>
+<script src="/js/nav.js"></script>
+<script>
+(async function(){
+  const me = await initNav('billing');
+  if (!me) return;
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('checkout') === 'success') {
+    document.getElementById('checkoutMsg').textContent = 'Payment received! It can take a few seconds to activate — refresh if your plan below still says Free.';
+  } else if (params.get('checkout') === 'canceled') {
+    document.getElementById('checkoutMsg').textContent = 'Checkout canceled.';
+  }
+
+  const line = document.getElementById('currentPlanLine');
+  if (me.planStatus.hasAccess) {
+    line.textContent = 'Current plan: ' + me.planStatus.planLabel;
+    // Already covered by a plan (their own, or their team's) -- hide the upgrade cards.
+    document.getElementById('plansBox').style.display = 'none';
+    // Only the person who actually owns a Stripe subscription can manage/cancel it.
+    if (me.profile.stripe_customer_id || (me.team && me.team.owner_id === me.profile.id)) {
+      document.getElementById('manageBox').style.display = 'block';
+    }
+  } else {
+    line.textContent = 'Current plan: Free';
+  }
+
+  document.getElementById('portalBtn').addEventListener('click', async () => {
+    try {
+      const { url } = await apiFetch('/api/stripe/create-portal-session', { method: 'POST' });
+      window.location.href = url;
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.querySelectorAll('#plansBox button[data-plan]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true; btn.textContent = 'Redirecting...';
+      try {
+        const { url } = await apiFetch('/api/stripe/create-checkout-session', {
+          method: 'POST', body: JSON.stringify({ plan: btn.dataset.plan })
+        });
+        window.location.href = url;
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false; btn.textContent = 'Choose ' + (btn.dataset.plan === 'team' ? 'Team' : 'Individual');
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

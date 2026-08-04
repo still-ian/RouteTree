@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings — RouteTree.ai</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<nav class="top">
+  <a class="brand" href="/dashboard.html">Route<span>Tree</span>.ai</a>
+  <div class="links">
+    <a href="/dashboard.html" data-page="dashboard">Plays</a>
+    <a href="/team.html" data-page="team">Team</a>
+    <a href="/billing.html" data-page="billing">Billing</a>
+    <a href="/settings.html" data-page="settings">Settings</a>
+    <span class="pill" id="planPill">...</span>
+    <button id="signOutBtn">Sign out</button>
+  </div>
+</nav>
+
+<div class="wrap" style="padding-top:24px;max-width:520px;">
+  <h1>Settings</h1>
+
+  <div class="card">
+    <div class="field">
+      <label>Display name</label>
+      <input type="text" id="displayName">
+    </div>
+    <button class="btn" id="saveNameBtn">Save name</button>
+  </div>
+
+  <div class="card">
+    <h2>Color scheme</h2>
+    <p class="dim">Pick an accent color for your account — it's yours alone, teammates can each pick their own.</p>
+    <div class="swatch-row" id="swatchRow"></div>
+    <div class="field">
+      <label>Or enter a custom hex color</label>
+      <input type="text" id="customColor" placeholder="#4F8EF7">
+    </div>
+    <button class="btn" id="saveColorBtn">Save color</button>
+  </div>
+
+  <p class="status-msg" id="statusMsg"></p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/config.js"></script>
+<script src="/js/supabaseClient.js"></script>
+<script src="/js/nav.js"></script>
+<script>
+const SWATCHES = ['#4F8EF7','#C9A831','#E85D5D','#3EBD6E','#B36AE2','#F2994A','#2FB4C4','#E85D9E'];
+
+(async function(){
+  const me = await initNav('settings');
+  if (!me) return;
+
+  document.getElementById('displayName').value = me.profile.display_name;
+
+  const row = document.getElementById('swatchRow');
+  SWATCHES.forEach(color => {
+    const s = document.createElement('div');
+    s.className = 'swatch' + (me.profile.theme_color === color ? ' selected' : '');
+    s.style.background = color;
+    s.dataset.color = color;
+    s.addEventListener('click', () => selectSwatch(color));
+    row.appendChild(s);
+  });
+
+  function selectSwatch(color){
+    document.querySelectorAll('.swatch').forEach(s => s.classList.toggle('selected', s.dataset.color === color));
+    document.getElementById('customColor').value = color;
+  }
+
+  document.getElementById('saveNameBtn').addEventListener('click', async () => {
+    const display_name = document.getElementById('displayName').value.trim();
+    if (!display_name) return;
+    try {
+      await apiFetch('/api/profile/me', { method: 'PUT', body: JSON.stringify({ display_name }) });
+      document.getElementById('statusMsg').textContent = 'Name saved.';
+    } catch (err) {
+      document.getElementById('statusMsg').textContent = err.message;
+    }
+  });
+
+  document.getElementById('saveColorBtn').addEventListener('click', async () => {
+    const theme_color = document.getElementById('customColor').value.trim() || me.profile.theme_color;
+    if (!/^#[0-9a-fA-F]{6}$/.test(theme_color)) {
+      document.getElementById('statusMsg').textContent = 'Enter a valid hex color like #4F8EF7.';
+      return;
+    }
+    try {
+      await apiFetch('/api/profile/me', { method: 'PUT', body: JSON.stringify({ theme_color }) });
+      document.documentElement.style.setProperty('--accent', theme_color);
+      document.getElementById('statusMsg').textContent = 'Color saved.';
+    } catch (err) {
+      document.getElementById('statusMsg').textContent = err.message;
+    }
+  });
+})();
+</script>
+</body>
+</html>

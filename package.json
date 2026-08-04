@@ -1,0 +1,18 @@
+{
+  "name": "routetree",
+  "version": "1.0.0",
+  "description": "RouteTree.ai - AI-assisted football play designer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "express": "^4.19.2",
+    "stripe": "^16.8.0",
+    "dotenv": "^16.4.5"
+  }
+}

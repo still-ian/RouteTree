@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — RouteTree.ai</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<nav class="top">
+  <a class="brand" href="/dashboard.html">Route<span>Tree</span>.ai</a>
+  <div class="links">
+    <a href="/dashboard.html" data-page="dashboard">Plays</a>
+    <a href="/team.html" data-page="team">Team</a>
+    <a href="/billing.html" data-page="billing">Billing</a>
+    <a href="/settings.html" data-page="settings">Settings</a>
+    <span class="pill" id="planPill">...</span>
+    <button id="signOutBtn">Sign out</button>
+  </div>
+</nav>
+
+<div class="wrap" style="padding-top:24px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <h1 style="margin:0;">Your plays</h1>
+    <a class="btn" href="/designer.html">+ New play</a>
+  </div>
+  <p class="dim" id="upgradeHint" style="display:none;">
+    You're on the Free plan — build plays by hand anytime. <a href="/billing.html">Upgrade</a> to type a play description and let RouteTree draw it for you.
+  </p>
+
+  <div class="card" style="margin-top:20px;">
+    <table class="list" id="playsTable">
+      <thead><tr><th>Name</th><th>Where</th><th>Updated</th><th></th></tr></thead>
+      <tbody id="playsBody"></tbody>
+    </table>
+    <p class="dim" id="emptyMsg" style="display:none;padding:20px 0 4px;">No plays yet. Start with "+ New play" above.</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/config.js"></script>
+<script src="/js/supabaseClient.js"></script>
+<script src="/js/nav.js"></script>
+<script>
+(async function(){
+  const me = await initNav('dashboard');
+  if (!me) return;
+  document.getElementById('upgradeHint').style.display = me.planStatus.hasAccess ? 'none' : 'block';
+
+  try {
+    const { plays } = await apiFetch('/api/plays');
+    const body = document.getElementById('playsBody');
+    document.getElementById('emptyMsg').style.display = plays.length ? 'none' : 'block';
+    plays.forEach(p => {
+      const tr = document.createElement('tr');
+      const updated = new Date(p.updated_at).toLocaleDateString();
+      tr.innerHTML =
+        '<td>' + escapeHtml(p.name) + '</td>' +
+        '<td>' + (p.team_id ? 'Team playbook' : 'Personal') + '</td>' +
+        '<td>' + updated + '</td>' +
+        '<td style="text-align:right;"></td>';
+      const cell = tr.lastElementChild;
+      const openBtn = document.createElement('a');
+      openBtn.className = 'btn secondary';
+      openBtn.textContent = 'Open';
+      openBtn.href = '/designer.html?play=' + p.id;
+      openBtn.style.marginRight = '8px';
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn danger';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', async () => {
+        if (!confirm('Delete "' + p.name + '"? This can\'t be undone.')) return;
+        await apiFetch('/api/plays/' + p.id, { method: 'DELETE' });
+        tr.remove();
+      });
+      cell.appendChild(openBtn);
+      cell.appendChild(delBtn);
+      body.appendChild(tr);
+    });
+  } catch (err) {
+    console.error(err);
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+})();
+</script>
+</body>
+</html>

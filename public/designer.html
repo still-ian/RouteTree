@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Designer — RouteTree.ai</title>
+<link rel="stylesheet" href="/styles.css">
+<style>
+  body{-webkit-tap-highlight-color:transparent;}
+  .toolbar{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;}
+  .toolbar .grp{display:flex;gap:6px;padding:2px;background:var(--panel-2);border-radius:10px;}
+  button.tool{display:flex;align-items:center;gap:6px;background:transparent;border:none;color:var(--text-dim);padding:8px 10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;-webkit-user-select:none;user-select:none;}
+  button.tool svg{width:16px;height:16px;flex:none;}
+  button.tool.active{background:var(--accent);color:var(--accent-ink);}
+  button.tool:not(.active):hover{background:var(--line);color:var(--text);}
+  .subbar{display:none;flex-wrap:wrap;gap:6px;padding:8px 12px;background:var(--panel-2);border-bottom:1px solid var(--line);}
+  .subbar.show{display:flex;}
+  .subbar .label{font-size:11px;color:var(--text-dim);align-self:center;margin-right:4px;text-transform:uppercase;letter-spacing:.5px;}
+  .field-wrap{padding:14px 12px 6px;}
+  #fieldCanvas{width:100%;height:auto;display:block;border-radius:10px;border:3px solid var(--accent);touch-action:none;background:#1F4D2C;}
+  .style-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .style-pill{background:var(--panel-2);border:1px solid var(--line);color:var(--text-dim);padding:6px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;}
+  .style-pill.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
+  .selected-row{display:flex;align-items:center;gap:8px;}
+  #exportModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:50;align-items:center;justify-content:center;flex-direction:column;padding:20px;}
+  #exportModal.show{display:flex;}
+  #exportModal img{max-width:90vw;max-height:70vh;border-radius:8px;border:2px solid var(--accent);}
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <a class="brand" href="/dashboard.html">Route<span>Tree</span>.ai</a>
+  <div class="links">
+    <a href="/dashboard.html" data-page="dashboard">Plays</a>
+    <a href="/team.html" data-page="team">Team</a>
+    <a href="/billing.html" data-page="billing">Billing</a>
+    <a href="/settings.html" data-page="settings">Settings</a>
+    <span class="pill" id="planPill">...</span>
+    <button id="signOutBtn">Sign out</button>
+  </div>
+</nav>
+
+<div class="wrap" style="padding-top:16px;max-width:900px;">
+  <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+    <input type="text" id="playName" placeholder="Play name, e.g. 24 Power Right" style="flex:1;min-width:180px;">
+    <label id="shareRow" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);text-transform:none;letter-spacing:0;font-weight:400;">
+      <input type="checkbox" id="shareWithTeam" style="width:auto;"> Save to team playbook
+    </label>
+    <button class="btn" id="saveBtn">Save play</button>
+  </div>
+</div>
+
+<div class="toolbar" id="mainToolbar">
+  <div class="grp" id="modeGrp">
+    <button class="tool active" data-mode="select" title="Move / select"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l7 16 2-7 7-2z"/></svg> Move</button>
+    <button class="tool" data-mode="addO" title="Add offense"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg> Off</button>
+    <button class="tool" data-mode="addX" title="Add defense"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l14 14M19 5L5 19"/></svg> Def</button>
+    <button class="tool" data-mode="route" title="Draw route"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18c4-10 12-10 16-14"/><path d="M15 3l5 1-1 5"/></svg> Route</button>
+    <button class="tool" data-mode="erase" title="Erase"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13l-7 7H6l-3-3 10-10z"/><path d="M14 3l7 7"/></svg> Erase</button>
+  </div>
+  <div class="grp">
+    <button class="tool" id="undoBtn" title="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-1"/></svg> Undo</button>
+    <button class="tool" id="clearBtn" title="Clear field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg> Clear</button>
+    <button class="tool" id="exportBtn" title="Export image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Export</button>
+  </div>
+</div>
+
+<div class="subbar" id="routeSubbar">
+  <span class="label">Route style</span>
+  <button class="tool active" data-route="pass">Pass</button>
+  <button class="tool" data-route="run">Run</button>
+  <button class="tool" data-route="block">Block</button>
+  <button class="tool" data-route="motion">Motion</button>
+</div>
+
+<div class="subbar" id="formSubbar">
+  <span class="label">Offense</span>
+  <button class="tool" data-off="IForm">I-Form</button>
+  <button class="tool" data-off="Shotgun">Shotgun</button>
+  <button class="tool" data-off="Singleback">Singleback</button>
+  <button class="tool" data-off="Empty">Empty</button>
+  <span class="label" style="margin-left:10px;">Defense</span>
+  <button class="tool" data-def="43">4-3</button>
+  <button class="tool" data-def="34">3-4</button>
+  <button class="tool" data-def="Nickel">Nickel</button>
+</div>
+
+<div class="wrap" style="max-width:900px;">
+  <div class="card" style="border-color:var(--accent);margin-top:14px;">
+    <h2 style="margin-bottom:8px;">Draw it up</h2>
+    <textarea id="aiInput" rows="2" placeholder="e.g. Two receiver set on the left hash, strength to the field. Z runs a 15-yard dig with a square break, Y seam route, X and H both run slants."></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px;">
+      <span class="status-msg" id="aiHint">Describe offense, defense, or both — whatever you don't mention stays as-is.</span>
+      <button class="btn" id="aiBtn">Draw it up</button>
+    </div>
+  </div>
+</div>
+
+<div class="field-wrap wrap" style="max-width:900px;">
+  <canvas id="fieldCanvas" width="750" height="1000"></canvas>
+</div>
+<p class="status-msg wrap" style="max-width:900px;" id="statusLine">Tap "Off" or "Def" then tap the field to place a player.</p>
+
+<div class="wrap" style="max-width:900px;">
+  <div class="card">
+    <h2>Selected</h2>
+    <div id="selectedBox"><p class="dim">Tap a player or a route on the field to edit it.</p></div>
+  </div>
+</div>
+
+<div id="exportModal">
+  <img id="exportImg" alt="Exported play">
+  <p class="dim">On phone: press and hold the image to save it. On desktop it downloaded automatically.</p>
+  <button class="btn" id="closeExport">Close</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/config.js"></script>
+<script src="/js/supabaseClient.js"></script>
+<script src="/js/nav.js"></script>
+<script>
+(async function(){
+  const me = await initNav('dashboard');
+  if (!me) return;
+
+  const hasTeam = !!me.team;
+  document.getElementById('shareRow').style.display = hasTeam ? 'flex' : 'none';
+  const hasAccess = me.planStatus.hasAccess;
+  if (!hasAccess) {
+    document.getElementById('aiHint').innerHTML = 'AI play generation needs an active plan. <a href="/billing.html">Upgrade</a> to use it.';
+  }
+
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4F8EF7';
+
+  const canvas = document.getElementById('fieldCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const LOS_Y = 700;
+  const R = 20;
+
+  let state = { players: [], routes: [] };
+  let history = [];
+  let mode = 'select';
+  let routeStyle = 'pass';
+  let selectedId = null;
+  let selectedRouteId = null;
+  let draggingId = null;
+  let draggingRoutePoint = null;
+  let drawingRoute = null;
+  let counters = {O:0, X:0};
+  let currentPlayId = null;
+
+  function snapshot(){ history.push(JSON.stringify(state)); if (history.length>60) history.shift(); }
+  function undo(){
+    if(!history.length) return;
+    state = JSON.parse(history.pop());
+    selectedId = null; selectedRouteId = null;
+    renderSelected(); draw();
+  }
+  function uid(){ return Math.random().toString(36).slice(2,9); }
+  function clampX(x){ return Math.max(20, Math.min(730, Number(x)||375)); }
+  function clampY(y){ return Math.max(20, Math.min(980, Number(y)||700)); }
+  function setStatus(msg){ document.getElementById('statusLine').textContent = msg; }
+
+  function addPlayer(type,x,y,label){
+    counters[type]++;
+    const p = { id: uid(), type, x, y, label: label || (type==='O'?'O'+counters.O:'D'+counters.X) };
+    state.players.push(p);
+    return p;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const stripeH = 100;
+    for(let y=0;y<H;y+=stripeH){
+      ctx.fillStyle = (Math.floor(y/stripeH)%2===0) ? '#1F4D2C' : '#255A33';
+      ctx.fillRect(0,y,W,stripeH);
+    }
+    ctx.strokeStyle = 'rgba(245,243,237,0.35)'; ctx.lineWidth = 1.5;
+    for(let y=50;y<H;y+=50){
+      ctx.beginPath(); ctx.moveTo(20,y); ctx.lineTo(W-20,y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(250,y-6); ctx.lineTo(250,y+6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(500,y-6); ctx.lineTo(500,y+6); ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(245,243,237,0.6)'; ctx.lineWidth = 3;
+    ctx.strokeRect(15,15,W-30,H-30);
+    ctx.strokeStyle = '#F5F3ED'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(20,LOS_Y); ctx.lineTo(W-20,LOS_Y); ctx.stroke();
+    ctx.fillStyle = '#F5F3ED'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign='left';
+    ctx.fillText('LOS', 24, LOS_Y-8);
+    ctx.strokeStyle = 'rgba(245,243,237,0.55)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(W-60,80); ctx.lineTo(W-60,30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W-68,42); ctx.lineTo(W-60,26); ctx.lineTo(W-52,42); ctx.stroke();
+    ctx.textAlign='right'; ctx.font='11px sans-serif'; ctx.fillStyle='rgba(245,243,237,0.6)';
+    ctx.fillText('offense drives', W-24, 95);
+
+    state.routes.forEach(r=>drawRoute(r,false,r.id===selectedRouteId));
+    if(drawingRoute) drawRoute(drawingRoute,true);
+    state.players.forEach(p=>drawPlayer(p));
+
+    const selRoute = state.routes.find(r=>r.id===selectedRouteId);
+    if(selRoute) drawRouteHandles(selRoute);
+  }
+
+  function drawRouteHandles(r){
+    r.points.forEach((pt,i)=>{
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(pt.x,pt.y, i===r.points.length-1?9:7, 0, Math.PI*2);
+      ctx.fillStyle = i===r.points.length-1 ? accent : '#F5F3ED';
+      ctx.fill();
+      ctx.lineWidth=2; ctx.strokeStyle='#14141A'; ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  function drawRoute(r,isTemp,isSelected){
+    const pts = r.points;
+    if(pts.length<2) return;
+    ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round';
+    let color, width, dash=[];
+    if(r.style==='pass'){ color=accent; width=4; }
+    else if(r.style==='run'){ color=accent; width=7; }
+    else if(r.style==='block'){ color='#F5F3ED'; width=5; }
+    else { color='#B6ADC4'; width=3; dash=[9,7]; }
+    if(isSelected){
+      ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+      for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y);
+      ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=width+9; ctx.stroke();
+    }
+    ctx.strokeStyle = isTemp ? 'rgba(255,255,255,0.55)' : color;
+    ctx.lineWidth = width; ctx.setLineDash(dash);
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y);
+    ctx.stroke(); ctx.setLineDash([]);
+
+    const last = pts[pts.length-1];
+    const prev = pts[pts.length-2] || pts[0];
+    const ang = Math.atan2(last.y-prev.y, last.x-prev.x);
+
+    if(r.style==='block'){
+      const bw=14;
+      const px=-Math.sin(ang)*bw, py=Math.cos(ang)*bw;
+      ctx.beginPath(); ctx.moveTo(last.x+px,last.y+py); ctx.lineTo(last.x-px,last.y-py);
+      ctx.lineWidth=6; ctx.strokeStyle = isTemp ? 'rgba(255,255,255,0.55)' : color; ctx.stroke();
+    } else if(!isTemp || pts.length>3){
+      const size = r.style==='run' ? 14 : 11;
+      ctx.beginPath(); ctx.moveTo(last.x,last.y);
+      ctx.lineTo(last.x-size*Math.cos(ang-0.4), last.y-size*Math.sin(ang-0.4));
+      ctx.lineTo(last.x-size*Math.cos(ang+0.4), last.y-size*Math.sin(ang+0.4));
+      ctx.closePath(); ctx.fillStyle = isTemp ? 'rgba(255,255,255,0.55)' : color; ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawPlayer(p){
+    const isSel = p.id===selectedId;
+    ctx.save();
+    if(p.type==='O'){
+      ctx.beginPath(); ctx.arc(p.x,p.y,R,0,Math.PI*2);
+      ctx.fillStyle = accent; ctx.fill();
+      ctx.lineWidth=3; ctx.strokeStyle='#14141A'; ctx.stroke();
+      ctx.fillStyle='#14141A'; ctx.font='bold 12px sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(p.label.slice(0,4), p.x, p.y+1);
+    } else {
+      const d=15;
+      ctx.strokeStyle='#1A1330'; ctx.lineWidth=8;
+      ctx.beginPath(); ctx.moveTo(p.x-d,p.y-d); ctx.lineTo(p.x+d,p.y+d);
+      ctx.moveTo(p.x-d,p.y+d); ctx.lineTo(p.x+d,p.y-d); ctx.stroke();
+      ctx.strokeStyle='#F5F3ED'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.moveTo(p.x-d,p.y-d); ctx.lineTo(p.x+d,p.y+d);
+      ctx.moveTo(p.x-d,p.y+d); ctx.lineTo(p.x+d,p.y-d); ctx.stroke();
+      ctx.font='bold 11px sans-serif';
+      const tw = ctx.measureText(p.label).width;
+      ctx.fillStyle='rgba(20,16,24,0.75)';
+      ctx.fillRect(p.x-tw/2-4, p.y+d+4, tw+8, 15);
+      ctx.fillStyle='#F5F3ED'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(p.label.slice(0,4), p.x, p.y+d+11);
+    }
+    if(isSel){
+      ctx.beginPath(); ctx.arc(p.x,p.y,R+7,0,Math.PI*2);
+      ctx.setLineDash([4,4]); ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  function hitPlayer(x,y){
+    for(let i=state.players.length-1;i>=0;i--){
+      const p = state.players[i];
+      if(Math.hypot(p.x-x,p.y-y) <= R+8) return p;
+    }
+    return null;
+  }
+  function hitRoute(x,y){
+    for(let i=state.routes.length-1;i>=0;i--){
+      const pts = state.routes[i].points;
+      for(let j=0;j<pts.length-1;j++){
+        if(distToSeg(x,y,pts[j],pts[j+1]) < 10) return state.routes[i];
+      }
+    }
+    return null;
+  }
+  function hitRoutePointIndex(route,x,y){
+    for(let i=route.points.length-1;i>=0;i--){
+      const pt = route.points[i];
+      const rad = i===route.points.length-1 ? 14 : 12;
+      if(Math.hypot(pt.x-x,pt.y-y) <= rad) return i;
+    }
+    return -1;
+  }
+  function distToSeg(px,py,a,b){
+    const dx=b.x-a.x, dy=b.y-a.y;
+    const len2=dx*dx+dy*dy;
+    let t = len2 ? ((px-a.x)*dx+(py-a.y)*dy)/len2 : 0;
+    t = Math.max(0,Math.min(1,t));
+    const cx=a.x+t*dx, cy=a.y+t*dy;
+    return Math.hypot(px-cx,py-cy);
+  }
+  function getPos(e){
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width/rect.width, sy = canvas.height/rect.height;
+    return { x:(e.clientX-rect.left)*sx, y:(e.clientY-rect.top)*sy };
+  }
+
+  canvas.addEventListener('pointerdown', e=>{
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    const pos = getPos(e);
+
+    if(mode==='addO' || mode==='addX'){
+      snapshot();
+      const p = addPlayer(mode==='addO'?'O':'X', pos.x, pos.y);
+      selectedId = p.id; renderSelected(); draw();
+      return;
+    }
+    if(mode==='erase'){
+      const p = hitPlayer(pos.x,pos.y);
+      if(p){
+        snapshot();
+        state.players = state.players.filter(pl=>pl.id!==p.id);
+        state.routes = state.routes.filter(r=>r.playerId!==p.id);
+        if(selectedId===p.id){selectedId=null; renderSelected();}
+        draw(); return;
+      }
+      const r = hitRoute(pos.x,pos.y);
+      if(r){
+        snapshot();
+        state.routes = state.routes.filter(rt=>rt.id!==r.id);
+        if(selectedRouteId===r.id){selectedRouteId=null; renderSelected();}
+        draw();
+      }
+      return;
+    }
+    if(mode==='route'){
+      const p = hitPlayer(pos.x,pos.y);
+      if(p) drawingRoute = { id: uid(), playerId:p.id, style:routeStyle, points:[{x:p.x,y:p.y}] };
+      return;
+    }
+
+    if(selectedRouteId){
+      const selRoute = state.routes.find(r=>r.id===selectedRouteId);
+      if(selRoute){
+        const idx = hitRoutePointIndex(selRoute,pos.x,pos.y);
+        if(idx>=0){ snapshot(); draggingRoutePoint = { routeId:selRoute.id, index:idx }; return; }
+      }
+    }
+    const p = hitPlayer(pos.x,pos.y);
+    if(p){
+      selectedId=p.id; selectedRouteId=null; draggingId=p.id;
+      snapshot(); renderSelected(); draw(); return;
+    }
+    const r = hitRoute(pos.x,pos.y);
+    if(r){ selectedRouteId=r.id; selectedId=null; renderSelected(); draw(); return; }
+    selectedId=null; selectedRouteId=null; renderSelected(); draw();
+  });
+
+  canvas.addEventListener('pointermove', e=>{
+    const pos = getPos(e);
+    if(drawingRoute){
+      const last = drawingRoute.points[drawingRoute.points.length-1];
+      if(Math.hypot(pos.x-last.x,pos.y-last.y)>5){ drawingRoute.points.push({x:pos.x,y:pos.y}); draw(); }
+      return;
+    }
+    if(draggingRoutePoint){
+      const route = state.routes.find(r=>r.id===draggingRoutePoint.routeId);
+      if(route){ route.points[draggingRoutePoint.index] = {x:clampX(pos.x),y:clampY(pos.y)}; draw(); }
+      return;
+    }
+    if(draggingId){
+      const p = state.players.find(pl=>pl.id===draggingId);
+      if(p){ p.x=Math.max(20,Math.min(W-20,pos.x)); p.y=Math.max(20,Math.min(H-20,pos.y)); draw(); }
+    }
+  });
+
+  function endInteraction(){
+    if(drawingRoute){
+      if(drawingRoute.points.length>=2){ snapshot(); state.routes.push(drawingRoute); }
+      drawingRoute=null; draw();
+    }
+    draggingId=null; draggingRoutePoint=null;
+  }
+  canvas.addEventListener('pointerup', endInteraction);
+  canvas.addEventListener('pointercancel', endInteraction);
+
+  document.getElementById('modeGrp').addEventListener('click', e=>{
+    const btn = e.target.closest('button.tool'); if(!btn) return;
+    mode = btn.dataset.mode;
+    if(mode!=='select') selectedRouteId=null;
+    document.querySelectorAll('#modeGrp .tool').forEach(b=>b.classList.toggle('active', b===btn));
+    document.getElementById('routeSubbar').classList.toggle('show', mode==='route');
+    const hints = {
+      select:'Drag a player to move it. Tap a player or a route to edit it below.',
+      addO:'Tap the field to drop an offensive player.',
+      addX:'Tap the field to drop a defender.',
+      route:'Tap a player, then drag to draw the route.',
+      erase:'Tap a player or a route to remove it.'
+    };
+    setStatus(hints[mode]||''); renderSelected(); draw();
+  });
+  document.getElementById('routeSubbar').addEventListener('click', e=>{
+    const btn = e.target.closest('button[data-route]'); if(!btn) return;
+    routeStyle = btn.dataset.route;
+    document.querySelectorAll('#routeSubbar .tool').forEach(b=>b.classList.toggle('active', b===btn));
+  });
+  document.getElementById('undoBtn').addEventListener('click', undo);
+  document.getElementById('clearBtn').addEventListener('click', ()=>{
+    if(!state.players.length && !state.routes.length) return;
+    snapshot();
+    state = { players:[], routes:[] }; counters={O:0,X:0};
+    selectedId=null; selectedRouteId=null; renderSelected(); draw();
+    setStatus('Field cleared.');
+  });
+
+  function renderSelected(){
+    const box = document.getElementById('selectedBox');
+    const p = state.players.find(pl=>pl.id===selectedId);
+    if(p){
+      box.innerHTML='';
+      const row=document.createElement('div'); row.className='selected-row';
+      const input=document.createElement('input'); input.type='text'; input.value=p.label; input.maxLength=5;
+      input.style.flex='1';
+      input.addEventListener('input', ()=>{ p.label = input.value || (p.type==='O'?'O':'D'); draw(); });
+      const del=document.createElement('button'); del.className='btn danger'; del.textContent='Delete';
+      del.addEventListener('click', ()=>{
+        snapshot();
+        state.players = state.players.filter(pl=>pl.id!==p.id);
+        state.routes = state.routes.filter(r=>r.playerId!==p.id);
+        selectedId=null; renderSelected(); draw();
+      });
+      row.appendChild(input); row.appendChild(del); box.appendChild(row);
+      return;
+    }
+    const r = state.routes.find(rt=>rt.id===selectedRouteId);
+    if(r){
+      box.innerHTML='';
+      const hint=document.createElement('p'); hint.className='dim'; hint.style.marginBottom='8px';
+      hint.textContent='Drag the dots on the route to reshape it — the end dot changes depth or break point.';
+      const styles=document.createElement('div'); styles.className='style-row';
+      ['pass','run','block','motion'].forEach(st=>{
+        const pill=document.createElement('button');
+        pill.className='style-pill'+(r.style===st?' active':'');
+        pill.textContent=st;
+        pill.addEventListener('click', ()=>{ snapshot(); r.style=st; draw(); renderSelected(); });
+        styles.appendChild(pill);
+      });
+      const del=document.createElement('button'); del.className='btn danger'; del.style.width='100%'; del.textContent='Delete route';
+      del.addEventListener('click', ()=>{
+        snapshot();
+        state.routes = state.routes.filter(rt=>rt.id!==r.id);
+        selectedRouteId=null; renderSelected(); draw();
+      });
+      box.appendChild(hint); box.appendChild(styles); box.appendChild(del);
+      return;
+    }
+    box.innerHTML = '<p class="dim">Tap a player or a route on the field to edit it.</p>';
+  }
+
+  const OFF_PRESETS = {
+    IForm:[['LT',275,700],['LG',325,700],['C',375,700],['RG',425,700],['RT',475,700],['TE',525,700],['QB',375,745],['FB',375,810],['RB',375,875],['WR1',100,700],['WR2',650,700]],
+    Shotgun:[['LT',275,700],['LG',325,700],['C',375,700],['RG',425,700],['RT',475,700],['TE',525,700],['QB',375,810],['RB',300,810],['WR1',75,700],['WR2',675,700],['SLOT',190,715]],
+    Singleback:[['LT',275,700],['LG',325,700],['C',375,700],['RG',425,700],['RT',475,700],['TE',525,700],['QB',375,745],['RB',375,810],['WR1',75,700],['WR2',675,700],['SLOT',190,715]],
+    Empty:[['LT',275,700],['LG',325,700],['C',375,700],['RG',425,700],['RT',475,700],['TE',525,700],['QB',375,810],['WR1',75,700],['WR2',675,700],['SL1',190,715],['SL2',575,715]]
+  };
+  const DEF_PRESETS = {
+    '43':[['DE',225,650],['DT',300,650],['DT',450,650],['DE',525,650],['OLB',225,580],['MLB',375,580],['OLB',525,580],['CB',100,630],['CB',650,630],['FS',325,470],['SS',425,500]],
+    '34':[['DE',275,650],['NT',375,650],['DE',475,650],['OLB',175,580],['ILB',325,580],['ILB',425,580],['OLB',575,580],['CB',100,630],['CB',650,630],['FS',325,470],['SS',425,500]],
+    'Nickel':[['DE',250,650],['DT',325,650],['DT',425,650],['DE',500,650],['MLB',325,580],['MLB',425,580],['CB',100,630],['CB',650,630],['NB',200,610],['FS',325,470],['SS',425,500]]
+  };
+  function loadPreset(list,type){
+    snapshot();
+    state.players = state.players.filter(p=>p.type!==type);
+    if(type==='O') counters.O=0; else counters.X=0;
+    list.forEach(([label,x,y])=>{ counters[type]++; state.players.push({id:uid(),type,x,y,label}); });
+    selectedId=null; renderSelected(); draw();
+    setStatus((type==='O'?'Offense':'Defense')+' formation loaded.');
+  }
+  document.getElementById('formSubbar').addEventListener('click', e=>{
+    const off = e.target.closest('button[data-off]');
+    const def = e.target.closest('button[data-def]');
+    if(off) loadPreset(OFF_PRESETS[off.dataset.off], 'O');
+    if(def) loadPreset(DEF_PRESETS[def.dataset.def], 'X');
+  });
+
+  async function applyAIResult(result){
+    snapshot();
+    if(Array.isArray(result.offense) && result.offense.length){
+      state.players = state.players.filter(p=>p.type!=='O'); counters.O=0;
+      result.offense.forEach(pl=>{ counters.O++; state.players.push({id:uid(),type:'O',x:clampX(pl.x),y:clampY(pl.y),label:String(pl.label||'O').slice(0,5)}); });
+    }
+    if(Array.isArray(result.defense) && result.defense.length){
+      state.players = state.players.filter(p=>p.type!=='X'); counters.X=0;
+      result.defense.forEach(pl=>{ counters.X++; state.players.push({id:uid(),type:'X',x:clampX(pl.x),y:clampY(pl.y),label:String(pl.label||'D').slice(0,5)}); });
+    }
+    if(Array.isArray(result.routes) && result.routes.length){
+      state.routes = [];
+      result.routes.forEach(r=>{
+        if(!Array.isArray(r.points) || r.points.length<2) return;
+        const player = state.players.find(p=>p.label.toLowerCase()===String(r.player||'').toLowerCase());
+        const style = ['pass','run','block','motion'].includes(r.style) ? r.style : 'pass';
+        state.routes.push({ id:uid(), playerId: player?player.id:null, style, points:r.points.map(pt=>({x:clampX(pt.x),y:clampY(pt.y)})) });
+      });
+    }
+    selectedId=null; selectedRouteId=null; renderSelected(); draw();
+  }
+
+  document.getElementById('aiBtn').addEventListener('click', async ()=>{
+    const input = document.getElementById('aiInput');
+    const text = input.value.trim();
+    if(!text){ setStatus('Type a play description first.'); return; }
+    if(!hasAccess){ setStatus('AI play generation needs an active plan. Visit Billing to upgrade.'); return; }
+    const btn = document.getElementById('aiBtn');
+    btn.disabled = true; btn.textContent = 'Drawing...';
+    setStatus('Drawing up the play...');
+    try{
+      const result = await apiFetch('/api/ai-play', { method:'POST', body: JSON.stringify({ text }) });
+      await applyAIResult(result);
+      setStatus('Play drawn up — nudge anything that needs adjusting.');
+    }catch(err){
+      setStatus(err.message || 'Could not generate that play.');
+    }finally{
+      btn.disabled=false; btn.textContent='Draw it up';
+    }
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', ()=>{
+    const wasSel=selectedId, wasSelRoute=selectedRouteId;
+    selectedId=null; selectedRouteId=null; draw();
+    const url = canvas.toDataURL('image/png');
+    selectedId=wasSel; selectedRouteId=wasSelRoute; draw();
+    document.getElementById('exportImg').src=url;
+    document.getElementById('exportModal').classList.add('show');
+    try{
+      const a=document.createElement('a'); a.href=url; a.download='play-diagram.png';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }catch(err){}
+  });
+  document.getElementById('closeExport').addEventListener('click', ()=>{
+    document.getElementById('exportModal').classList.remove('show');
+  });
+
+  document.getElementById('saveBtn').addEventListener('click', async ()=>{
+    const name = document.getElementById('playName').value.trim();
+    if(!name){ setStatus('Give the play a name before saving.'); return; }
+    const shareWithTeam = document.getElementById('shareWithTeam').checked;
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true; btn.textContent = 'Saving...';
+    try{
+      if(currentPlayId){
+        await apiFetch('/api/plays/'+currentPlayId, { method:'PUT', body: JSON.stringify({ name, data: state }) });
+      } else {
+        const { play } = await apiFetch('/api/plays', { method:'POST', body: JSON.stringify({ name, data: state, shareWithTeam }) });
+        currentPlayId = play.id;
+        history.pushState ? null : null;
+        window.history.replaceState({}, '', '/designer.html?play='+play.id);
+      }
+      setStatus('Saved "'+name+'".');
+    }catch(err){
+      setStatus(err.message || 'Could not save right now.');
+    }finally{
+      btn.disabled=false; btn.textContent='Save play';
+    }
+  });
+
+  const params = new URLSearchParams(window.location.search);
+  const loadId = params.get('play');
+  if(loadId){
+    try{
+      const { play } = await apiFetch('/api/plays/'+loadId);
+      currentPlayId = play.id;
+      document.getElementById('playName').value = play.name;
+      if(hasTeam) document.getElementById('shareWithTeam').checked = !!play.team_id;
+      state = play.data;
+      state.players.forEach(p=>{ if(p.type==='O') counters.O++; else counters.X++; });
+    }catch(err){
+      setStatus('Could not load that play.');
+    }
+  }
+
+  renderSelected();
+  draw();
+})();
+</script>
+</body>
+</html>
