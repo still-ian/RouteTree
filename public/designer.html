@@ -506,19 +506,35 @@
 
   async function applyAIResult(result){
     snapshot();
+    let newOffense = [];
+    let newDefense = [];
     if(Array.isArray(result.offense) && result.offense.length){
       state.players = state.players.filter(p=>p.type!=='O'); counters.O=0;
-      result.offense.forEach(pl=>{ counters.O++; state.players.push({id:uid(),type:'O',x:clampX(pl.x),y:clampY(pl.y),label:String(pl.label||'O').slice(0,5)}); });
+      result.offense.forEach(pl=>{
+        counters.O++;
+        const p = {id:uid(),type:'O',x:clampX(pl.x),y:clampY(pl.y),label:String(pl.label||'O').slice(0,5)};
+        state.players.push(p);
+        newOffense.push(p);
+      });
     }
     if(Array.isArray(result.defense) && result.defense.length){
       state.players = state.players.filter(p=>p.type!=='X'); counters.X=0;
-      result.defense.forEach(pl=>{ counters.X++; state.players.push({id:uid(),type:'X',x:clampX(pl.x),y:clampY(pl.y),label:String(pl.label||'D').slice(0,5)}); });
+      result.defense.forEach(pl=>{
+        counters.X++;
+        const p = {id:uid(),type:'X',x:clampX(pl.x),y:clampY(pl.y),label:String(pl.label||'D').slice(0,5)};
+        state.players.push(p);
+        newDefense.push(p);
+      });
     }
     if(Array.isArray(result.routes) && result.routes.length){
       state.routes = [];
       result.routes.forEach(r=>{
         if(!Array.isArray(r.points) || r.points.length<2) return;
-        const player = state.players.find(p=>p.label.toLowerCase()===String(r.player||'').toLowerCase());
+        // Routes target a player by position in THIS response's offense/defense list
+        // (side + index), not by matching label text -- this is what the AI is
+        // instructed to send, and it's immune to label spelling/format mismatches.
+        const list = r.side==='defense' ? newDefense : newOffense;
+        const player = (typeof r.index === 'number') ? list[r.index] : null;
         const style = ['pass','run','block','motion'].includes(r.style) ? r.style : 'pass';
         state.routes.push({ id:uid(), playerId: player?player.id:null, style, points:r.points.map(pt=>({x:clampX(pt.x),y:clampY(pt.y)})) });
       });
