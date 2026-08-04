@@ -73,8 +73,7 @@ router.post('/', requireAuth, async (req, res) => {
       },
       body: JSON.stringify({
      model: 'claude-sonnet-5',
-     max_tokens: 4096,
-     thinking: { type: 'disabled' },
+     max_tokens: 6000,
      system: AI_SYSTEM_PROMPT,
      messages: [{ role: 'user', content: text.trim() }]
    })
