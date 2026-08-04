@@ -98,7 +98,7 @@
 </div>
 
 <div class="field-wrap wrap" style="max-width:900px;">
-  <canvas id="fieldCanvas" width="750" height="1000"></canvas>
+  <canvas id="fieldCanvas" width="750" height="720"></canvas>
 </div>
 <p class="status-msg wrap" style="max-width:900px;" id="statusLine">Tap "Off" or "Def" then tap the field to place a player.</p>
 
@@ -136,8 +136,10 @@
   const canvas = document.getElementById('fieldCanvas');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  const LOS_Y = 700;
+  const LOS_Y = 500; // the 50-yard line -- offense always lines up at midfield in this diagram
+  const GOAL_LINE_Y = 100; // 50 real yards (50*YARD_PX=400px) upfield from the LOS
   const R = 20;
+  const YARD_PX = 8; // must match the scale in the AI system prompt (routes/ai.js)
 
   let state = { players: [], routes: [] };
   let history = [];
@@ -160,7 +162,7 @@
   }
   function uid(){ return Math.random().toString(36).slice(2,9); }
   function clampX(x){ return Math.max(20, Math.min(730, Number(x)||375)); }
-  function clampY(y){ return Math.max(20, Math.min(980, Number(y)||700)); }
+  function clampY(y){ return Math.max(GOAL_LINE_Y, Math.min(H-20, Number(y)||LOS_Y)); }
   function setStatus(msg){ document.getElementById('statusLine').textContent = msg; }
 
   function addPlayer(type,x,y,label){
@@ -172,13 +174,35 @@
 
   function draw(){
     ctx.clearRect(0,0,W,H);
-    const stripeH = 100;
+    const stripeH = YARD_PX*10; // 10-yard turf bands, aligned to the yard lines below
     for(let y=0;y<H;y+=stripeH){
       ctx.fillStyle = (Math.floor(y/stripeH)%2===0) ? '#1F4D2C' : '#255A33';
       ctx.fillRect(0,y,W,stripeH);
     }
+    // End zone: the field is a fixed 50 yards from the LOS (always drawn as midfield) to
+    // the goal line at GOAL_LINE_Y -- everything above that is the end zone.
+    ctx.fillStyle = '#15351F';
+    ctx.fillRect(0,20,W,GOAL_LINE_Y-20);
+    ctx.save();
+    ctx.translate(38,(20+GOAL_LINE_Y)/2); ctx.rotate(-Math.PI/2);
+    ctx.fillStyle='rgba(245,243,237,0.45)'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('END ZONE',0,0);
+    ctx.restore();
+
+    // Yard lines are true 5-yard increments anchored to the LOS (always the "50"), so
+    // on-screen depth matches the AI's coordinate math exactly and counts down like a
+    // real field. Only every-10-yard lines get a number, same as a real field.
+    const yardStep = YARD_PX*5;
     ctx.strokeStyle = 'rgba(245,243,237,0.35)'; ctx.lineWidth = 1.5;
-    for(let y=50;y<H;y+=50){
+    ctx.fillStyle = 'rgba(245,243,237,0.65)'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign='left';
+    for(let y=LOS_Y-yardStep, yd=45; y>=GOAL_LINE_Y; y-=yardStep, yd-=5){
+      ctx.beginPath(); ctx.moveTo(20,y); ctx.lineTo(W-20,y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(250,y-6); ctx.lineTo(250,y+6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(500,y-6); ctx.lineTo(500,y+6); ctx.stroke();
+      if(yd===0) ctx.fillText('G', 24, y+4);
+      else if(yd%10===0) ctx.fillText(String(yd), 24, y+4);
+    }
+    for(let y=LOS_Y+yardStep; y<H-20; y+=yardStep){
       ctx.beginPath(); ctx.moveTo(20,y); ctx.lineTo(W-20,y); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(250,y-6); ctx.lineTo(250,y+6); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(500,y-6); ctx.lineTo(500,y+6); ctx.stroke();
@@ -188,7 +212,7 @@
     ctx.strokeStyle = '#F5F3ED'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(20,LOS_Y); ctx.lineTo(W-20,LOS_Y); ctx.stroke();
     ctx.fillStyle = '#F5F3ED'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign='left';
-    ctx.fillText('LOS', 24, LOS_Y-8);
+    ctx.fillText('LOS · 50', 24, LOS_Y-8);
     ctx.strokeStyle = 'rgba(245,243,237,0.55)'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(W-60,80); ctx.lineTo(W-60,30); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(W-68,42); ctx.lineTo(W-60,26); ctx.lineTo(W-52,42); ctx.stroke();
@@ -479,15 +503,15 @@
   }
 
   const OFF_PRESETS = {
-    IForm:[['LT',275,700],['LG',325,700],['C',375,700],['RG',425,700],['RT',475,700],['TE',525,700],['QB',375,745],['FB',375,810],['RB',375,875],['WR1',100,700],['WR2',650,700]],
-    Shotgun:[['LT',275,700],['LG',325,700],['C',375,700],['RG',425,700],['RT',475,700],['TE',525,700],['QB',375,810],['RB',300,810],['WR1',75,700],['WR2',675,700],['SLOT',190,715]],
-    Singleback:[['LT',275,700],['LG',325,700],['C',375,700],['RG',425,700],['RT',475,700],['TE',525,700],['QB',375,745],['RB',375,810],['WR1',75,700],['WR2',675,700],['SLOT',190,715]],
-    Empty:[['LT',275,700],['LG',325,700],['C',375,700],['RG',425,700],['RT',475,700],['TE',525,700],['QB',375,810],['WR1',75,700],['WR2',675,700],['SL1',190,715],['SL2',575,715]]
+    IForm:[['LT',275,500],['LG',325,500],['C',375,500],['RG',425,500],['RT',475,500],['TE',525,500],['QB',375,545],['FB',375,610],['RB',375,675],['WR1',100,500],['WR2',650,500]],
+    Shotgun:[['LT',275,500],['LG',325,500],['C',375,500],['RG',425,500],['RT',475,500],['TE',525,500],['QB',375,610],['RB',300,610],['WR1',75,500],['WR2',675,500],['SLOT',190,515]],
+    Singleback:[['LT',275,500],['LG',325,500],['C',375,500],['RG',425,500],['RT',475,500],['TE',525,500],['QB',375,545],['RB',375,610],['WR1',75,500],['WR2',675,500],['SLOT',190,515]],
+    Empty:[['LT',275,500],['LG',325,500],['C',375,500],['RG',425,500],['RT',475,500],['TE',525,500],['QB',375,610],['WR1',75,500],['WR2',675,500],['SL1',190,515],['SL2',575,515]]
   };
   const DEF_PRESETS = {
-    '43':[['DE',225,650],['DT',300,650],['DT',450,650],['DE',525,650],['OLB',225,580],['MLB',375,580],['OLB',525,580],['CB',100,630],['CB',650,630],['FS',325,470],['SS',425,500]],
-    '34':[['DE',275,650],['NT',375,650],['DE',475,650],['OLB',175,580],['ILB',325,580],['ILB',425,580],['OLB',575,580],['CB',100,630],['CB',650,630],['FS',325,470],['SS',425,500]],
-    'Nickel':[['DE',250,650],['DT',325,650],['DT',425,650],['DE',500,650],['MLB',325,580],['MLB',425,580],['CB',100,630],['CB',650,630],['NB',200,610],['FS',325,470],['SS',425,500]]
+    '43':[['DE',225,450],['DT',300,450],['DT',450,450],['DE',525,450],['OLB',225,380],['MLB',375,380],['OLB',525,380],['CB',100,430],['CB',650,430],['FS',325,270],['SS',425,300]],
+    '34':[['DE',275,450],['NT',375,450],['DE',475,450],['OLB',175,380],['ILB',325,380],['ILB',425,380],['OLB',575,380],['CB',100,430],['CB',650,430],['FS',325,270],['SS',425,300]],
+    'Nickel':[['DE',250,450],['DT',325,450],['DT',425,450],['DE',500,450],['MLB',325,380],['MLB',425,380],['CB',100,430],['CB',650,430],['NB',200,410],['FS',325,270],['SS',425,300]]
   };
   function loadPreset(list,type){
     snapshot();
