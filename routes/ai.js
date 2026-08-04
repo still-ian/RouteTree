@@ -7,8 +7,9 @@ const router = express.Router();
 const AI_SYSTEM_PROMPT = `You convert a football play description into exact pixel coordinates for a play-diagram web app. Respond with ONLY valid JSON, no markdown fences, no commentary before or after it.
 
 COORDINATE SYSTEM:
-- Canvas is 750px wide (x: 20 = left sideline, 730 = right sideline, 375 = middle of field) by 1000px tall (y: 20 = deepest downfield, 980 = deepest backfield).
-- Line of scrimmage (LOS) is fixed at y=700. Offense lines up at y>=700 (at or behind LOS). Defense lines up at y<=700, above the LOS. Offense advances toward SMALLER y values ("downfield"/"upfield").
+- Canvas is 750px wide (x: 20 = left sideline, 730 = right sideline, 375 = middle of field) by 720px tall.
+- The field is always drawn as a fixed 50 yards from the line of scrimmage to the goal line, like a real coach's diagram. The LOS is always treated as midfield (the "50") and is fixed at y=500. The goal line is fixed at y=100 (500 - 50*8 = 100). Offense advances toward SMALLER y values ("downfield"/"upfield"), from y=500 toward y=100. Never place a route point above y=100 (that's the goal line) or below y=700 (deep backfield).
+- Offense lines up at y>=500 (at or behind the LOS). Defense lines up at y<=500, between the LOS and the goal line.
 - Hash marks: left hash x=290, right hash x=460, middle of field x=375. "Field side" is the wider side away from the nearest sideline to the ball; "boundary side" is the shorter side. If the ball is on the left hash, the field side is to the right (larger x) and the boundary is to the left (smaller x). Mirror if the ball is on the right hash.
 
 COORDINATE MATH (use this exactly, don't eyeball it):
@@ -18,21 +19,21 @@ COORDINATE MATH (use this exactly, don't eyeball it):
 - A 45-degree break ("post", "corner") over N more yards: move both x and y by roughly N*8*0.7 each (diagonal), continuing to decrease y.
 - Lateral-only movement (flat, screen, motion) uses x change with little or no y change.
 
-OFFENSIVE LINE: unless told otherwise, always exactly 5 players straddling the ball's x position at y=700, spaced 50px apart left to right: LT, LG, C, RG, RT.
+OFFENSIVE LINE: unless told otherwise, always exactly 5 players straddling the ball's x position at y=500, spaced 50px apart left to right: LT, LG, C, RG, RT.
 
 SKILL LABELS (use these unless the description names others): QB, RB, FB, TE (or Y), Z (flanker, usually off the line, strength side), X (split end, usually on the line, weak/boundary side), H (slot/H-back), WR.
 
 REFERENCE OFFENSIVE FORMATIONS (starting points measured from a center at x=375; shift every x by the same amount if the ball is on a hash instead of the middle, adapt labels to the actual description):
-I-Form: LT 275,700 | LG 325,700 | C 375,700 | RG 425,700 | RT 475,700 | TE 525,700 | QB 375,745 | FB 375,810 | RB 375,875 | WR1 100,700 | WR2 650,700
-Shotgun: same OL/TE | QB 375,810 | RB 300,810 | WR1 75,700 | WR2 675,700 | SLOT 190,715
-Singleback: same OL/TE | QB 375,745 | RB 375,810 | WR1 75,700 | WR2 675,700 | SLOT 190,715
-Empty: same OL/TE | QB 375,810 | WR1 75,700 | WR2 675,700 | SL1 190,715 | SL2 575,715
+I-Form: LT 275,500 | LG 325,500 | C 375,500 | RG 425,500 | RT 475,500 | TE 525,500 | QB 375,545 | FB 375,610 | RB 375,675 | WR1 100,500 | WR2 650,500
+Shotgun: same OL/TE | QB 375,610 | RB 300,610 | WR1 75,500 | WR2 675,500 | SLOT 190,515
+Singleback: same OL/TE | QB 375,545 | RB 375,610 | WR1 75,500 | WR2 675,500 | SLOT 190,515
+Empty: same OL/TE | QB 375,610 | WR1 75,500 | WR2 675,500 | SL1 190,515 | SL2 575,515
 2x2 or "two receiver" sets (2 WRs, 1 TE, 1 H/slot, 1 RB): OL centered on the ball | TE on the line, strength side, next to the tackle | Z (flanker) outside TE, off the line, strength side | H (slot) between TE and Z, off the line, strength side | X (split end) on the line, boundary side, near the opposite sideline | QB and RB in shotgun behind the ball
 
 REFERENCE DEFENSIVE FORMATIONS (shift x the same way if the ball is on a hash):
-4-3: DE 225,650 | DT 300,650 | DT 450,650 | DE 525,650 | OLB 225,580 | MLB 375,580 | OLB 525,580 | CB 100,630 | CB 650,630 | FS 325,470 | SS 425,500
-3-4: DE 275,650 | NT 375,650 | DE 475,650 | OLB 175,580 | ILB 325,580 | ILB 425,580 | OLB 575,580 | CB 100,630 | CB 650,630 | FS 325,470 | SS 425,500
-Nickel: DE 250,650 | DT 325,650 | DT 425,650 | DE 500,650 | MLB 325,580 | MLB 425,580 | CB 100,630 | CB 650,630 | NB 200,610 | FS 325,470 | SS 425,500
+4-3: DE 225,450 | DT 300,450 | DT 450,450 | DE 525,450 | OLB 225,380 | MLB 375,380 | OLB 525,380 | CB 100,430 | CB 650,430 | FS 325,270 | SS 425,300
+3-4: DE 275,450 | NT 375,450 | DE 475,450 | OLB 175,380 | ILB 325,380 | ILB 425,380 | OLB 575,380 | CB 100,430 | CB 650,430 | FS 325,270 | SS 425,300
+Nickel: DE 250,450 | DT 325,450 | DT 425,450 | DE 500,450 | MLB 325,380 | MLB 425,380 | CB 100,430 | CB 650,430 | NB 200,410 | FS 325,270 | SS 425,300
 
 ROUTE GLOSSARY (apply the COORDINATE MATH section above using the stated or typical depth; give each route 2-4 points):
 - Slant: release ~2 yards upfield then a 45-degree break inside (toward the center of the field), total depth by about 5 yards.
@@ -45,7 +46,7 @@ ROUTE GLOSSARY (apply the COORDINATE MATH section above using the stated or typi
 - Corner: vertical release 10-14 yards then a 45-degree break toward the nearest sideline.
 - Seam: mostly straight vertical release up the seam between the hash and the numbers, minimal break, depth 15-20+ yards.
 - Wheel: shallow flat release then turns upfield tight to the sideline.
-- Go / fade / vertical / clear-out: straight line upfield, depth 35-45 yards so it visually stretches well up the field (this is a route meant to look long on the diagram, not just technically "deep"), x barely changes.
+- Go / fade / vertical / clear-out: straight line upfield, depth 35-45 yards so it visually stretches well up the field (this is a route meant to look long on the diagram, not just technically "deep"), x barely changes. The field is a fixed 50 yards from the LOS to the goal line (y=100) -- never let a route's y go below 100.
 - Screen: short lateral or backward release near the LOS (y increases slightly), then the route can turn upfield behind blockers.
 - Running back run/handoff paths use style "run". Offensive line and other blocking assignments use style "block" (a short 2-point line toward the man being blocked). Pre-snap movement uses style "motion".
 
@@ -62,16 +63,16 @@ RULES:
 - When "offense" is non-empty it must contain all 11 offensive players, in the order you reference them from "routes". When "defense" is non-empty it must contain all 11 defensive players.
 - ONLY include a route for a player whose action the input actually describes (a named route, "runs a go", "blocks", "motions", etc.). Do NOT invent a route for a receiver just because they're on the field -- if the input doesn't say what a player does, leave them positioned with no route entry for them at all. If the input is cut off or incomplete, only draw what it actually specifies and stop there rather than guessing at the rest of the play.
 - style must be exactly one of: "pass", "run", "block", "motion".
-- Keep every x within 20-730 and every y within 20-980. Keep every label 5 characters or fewer.
+- Keep every x within 20-730 and every y within 100-700 (100 is the goal line -- never go past it; 700 is the deep backfield limit). Keep every label 5 characters or fewer.
 
 WORKED EXAMPLE -- this shows the coordinate math and JSON format only. NEVER reuse these exact numbers, labels, or routes for an actual request, even if the wording looks similar to the input below. Always recompute every coordinate from scratch based on the real input you were given. If the real input is vague, incomplete, or cut off, do your best reasonable interpretation of what IS there rather than defaulting to this example.
 
 Input: "Two receiver set on the left hash, strength to the field. Z runs a 15-yard dig with a square break, Y runs a seam route, then X and H both run slants."
 
-Reasoning: ball on the left hash (x=290), so field/strength side is to the right (larger x), boundary side is to the left (smaller x). OL centered on x=290: LT=190, LG=240, C=290, RG=340, RT=390. TE (Y) attached on the strength side at x=440. Z (flanker) outside Y, off the line, strength side, at x=600. H (slot) between Y and Z, off the line, strength side, at x=520. X (split end) on the line, boundary side, at x=60. QB and RB in shotgun behind the ball. That's 5 OL + TE + Z + H + X + QB + RB = 11 offensive players, indexed 0-10 in the order listed. Z's dig: release straight up 15 yards (15*8=120px) from (600,700) to (600,580), then a 90-degree break toward the middle by about 6 yards (6*8=48px) to (552,580). Y's seam: straight release about 18 yards from (440,700) to (440,556). X's slant: release ~2 yards then break inward (toward larger x, since X is on the boundary/left) at 45 degrees, ending around (100,660). H's slant: release then break toward the middle (toward smaller x, since H is on the field/right side), ending around (480,672).
+Reasoning: ball on the left hash (x=290), so field/strength side is to the right (larger x), boundary side is to the left (smaller x). OL centered on x=290 at y=500 (the LOS): LT=190, LG=240, C=290, RG=340, RT=390. TE (Y) attached on the strength side at x=440. Z (flanker) outside Y, off the line, strength side, at x=600. H (slot) between Y and Z, off the line, strength side, at x=520. X (split end) on the line, boundary side, at x=60. QB and RB in shotgun behind the ball at y=590. That's 5 OL + TE + Z + H + X + QB + RB = 11 offensive players, indexed 0-10 in the order listed. Z's dig: release straight up 15 yards (15*8=120px) from (600,500) to (600,380), then a 90-degree break toward the middle by about 6 yards (6*8=48px) to (552,380). Y's seam: straight release about 18 yards from (440,500) to (440,356). X's slant: release ~2 yards then break inward (toward larger x, since X is on the boundary/left) at 45 degrees, ending around (100,460). H's slant: release then break toward the middle (toward smaller x, since H is on the field/right side), ending around (480,472).
 
 Output:
-{"offense":[{"label":"LT","x":190,"y":700},{"label":"LG","x":240,"y":700},{"label":"C","x":290,"y":700},{"label":"RG","x":340,"y":700},{"label":"RT","x":390,"y":700},{"label":"TE","x":440,"y":700},{"label":"Z","x":600,"y":712},{"label":"H","x":520,"y":712},{"label":"X","x":60,"y":700},{"label":"QB","x":290,"y":790},{"label":"RB","x":240,"y":790}],"defense":[],"routes":[{"side":"offense","index":6,"style":"pass","points":[{"x":600,"y":700},{"x":600,"y":580},{"x":552,"y":580}]},{"side":"offense","index":5,"style":"pass","points":[{"x":440,"y":700},{"x":440,"y":556}]},{"side":"offense","index":8,"style":"pass","points":[{"x":60,"y":700},{"x":100,"y":660}]},{"side":"offense","index":7,"style":"pass","points":[{"x":520,"y":712},{"x":480,"y":672}]}]}
+{"offense":[{"label":"LT","x":190,"y":500},{"label":"LG","x":240,"y":500},{"label":"C","x":290,"y":500},{"label":"RG","x":340,"y":500},{"label":"RT","x":390,"y":500},{"label":"TE","x":440,"y":500},{"label":"Z","x":600,"y":512},{"label":"H","x":520,"y":512},{"label":"X","x":60,"y":500},{"label":"QB","x":290,"y":590},{"label":"RB","x":240,"y":590}],"defense":[],"routes":[{"side":"offense","index":6,"style":"pass","points":[{"x":600,"y":500},{"x":600,"y":380},{"x":552,"y":380}]},{"side":"offense","index":5,"style":"pass","points":[{"x":440,"y":500},{"x":440,"y":356}]},{"side":"offense","index":8,"style":"pass","points":[{"x":60,"y":500},{"x":100,"y":460}]},{"side":"offense","index":7,"style":"pass","points":[{"x":520,"y":512},{"x":480,"y":472}]}]}
 
 Note the indices: LT=0, LG=1, C=2, RG=3, RT=4, TE=5, Z=6, H=7, X=8, QB=9, RB=10 -- each route's "index" matches the player's position in the "offense" array above, counting from 0.`;
 
@@ -112,7 +113,7 @@ router.post('/', requireAuth, async (req, res) => {
     const raw = (data.content || []).map(b => b.text || '').join('\n');
     const clean = raw.replace(/```json|```/g, '').trim();
     const result = JSON.parse(clean);
-    console.log('AI play result for "' + text.trim().slice(0, 80) + '":', JSON.stringify(result));
+    console.log('AI play result for "' + text.trim() + '":', JSON.stringify(result));
     res.json(result);
   } catch (err) {
     console.error('AI play generation error:', err);
