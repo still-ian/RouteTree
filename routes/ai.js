@@ -110,6 +110,7 @@ router.post('/', requireAuth, async (req, res) => {
     const raw = (data.content || []).map(b => b.text || '').join('\n');
     const clean = raw.replace(/```json|```/g, '').trim();
     const result = JSON.parse(clean);
+    console.log('AI play result for "' + text.trim().slice(0, 80) + '":', JSON.stringify(result));
     res.json(result);
   } catch (err) {
     console.error('AI play generation error:', err);
