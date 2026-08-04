@@ -45,7 +45,7 @@ ROUTE GLOSSARY (apply the COORDINATE MATH section above using the stated or typi
 - Corner: vertical release 10-14 yards then a 45-degree break toward the nearest sideline.
 - Seam: mostly straight vertical release up the seam between the hash and the numbers, minimal break, depth 15-20+ yards.
 - Wheel: shallow flat release then turns upfield tight to the sideline.
-- Go / fade / vertical / clear-out: straight line upfield, depth 20+ yards, x barely changes.
+- Go / fade / vertical / clear-out: straight line upfield, depth 35-45 yards so it visually stretches well up the field (this is a route meant to look long on the diagram, not just technically "deep"), x barely changes.
 - Screen: short lateral or backward release near the LOS (y increases slightly), then the route can turn upfield behind blockers.
 - Running back run/handoff paths use style "run". Offensive line and other blocking assignments use style "block" (a short 2-point line toward the man being blocked). Pre-snap movement uses style "motion".
 
