@@ -60,6 +60,7 @@ ROUTE TARGETING -- READ CAREFULLY, this is the part most often gotten wrong:
 RULES:
 - Only fill "offense" if the description specifies/implies an offensive formation; leave it as an empty array only if there are truly no offensive routes/players to place in this response. Same logic for "defense".
 - When "offense" is non-empty it must contain all 11 offensive players, in the order you reference them from "routes". When "defense" is non-empty it must contain all 11 defensive players.
+- ONLY include a route for a player whose action the input actually describes (a named route, "runs a go", "blocks", "motions", etc.). Do NOT invent a route for a receiver just because they're on the field -- if the input doesn't say what a player does, leave them positioned with no route entry for them at all. If the input is cut off or incomplete, only draw what it actually specifies and stop there rather than guessing at the rest of the play.
 - style must be exactly one of: "pass", "run", "block", "motion".
 - Keep every x within 20-730 and every y within 20-980. Keep every label 5 characters or fewer.
 
