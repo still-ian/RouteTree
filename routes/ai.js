@@ -72,11 +72,12 @@ router.post('/', requireAuth, async (req, res) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 1500,
-        system: AI_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: text.trim() }]
-      })
+     model: 'claude-sonnet-5',
+     max_tokens: 4096,
+     thinking: { type: 'disabled' },
+     system: AI_SYSTEM_PROMPT,
+     messages: [{ role: 'user', content: text.trim() }]
+   })
     });
 
     if (!response.ok) {
